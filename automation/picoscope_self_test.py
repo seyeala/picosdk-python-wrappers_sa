@@ -149,8 +149,7 @@ def main():
     ps, ch = try_open_5000()
     a_family = False
     print("✅ Non-A 5000 device opened. Handle:", ch.value)
-
-   try:
+    try:
         variant = get_unit_info(ps, ch, a_family, "PICO_VARIANT_INFO")   # model
     except Exception:
         variant = "(unknown)"
