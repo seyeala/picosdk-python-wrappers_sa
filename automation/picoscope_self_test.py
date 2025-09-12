@@ -145,16 +145,12 @@ def fastest_dt_ns(ps, ch, a_family: bool, samples=1024) -> float:
     return float("nan")
 
 def main():
-    # 1) Open device (prefer 5000A family, fallback to non-A)
-    a_family = True
-    try:
-        ps, ch = try_open_5000a()
-    except Exception:
-        ps, ch = try_open_5000()
-        a_family = False
+    # Only non-A family
+    ps, ch = try_open_5000()
+    a_family = False
+    print("✅ Non-A 5000 device opened. Handle:", ch.value)
 
-    print("✅ Device opened. Handle:", ctypes.c_int16.from_buffer(ch).value)
-    try:
+   try:
         variant = get_unit_info(ps, ch, a_family, "PICO_VARIANT_INFO")   # model
     except Exception:
         variant = "(unknown)"
