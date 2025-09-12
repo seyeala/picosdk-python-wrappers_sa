@@ -111,9 +111,9 @@ def fastest_dt_ns(handle, samples=1024):
     """Scan timebase upward to find minimum Δt (ns) for current config."""
     tb = 0
     dt_ns = ctypes.c_float()
-    retmax = ctypes.c_uint32()
+    retmax = ctypes.c_int32()
     while tb < 10000:
-        st = ps.ps5000aGetTimebase2(handle, tb, samples, ctypes.byref(dt_ns), 1, ctypes.byref(retmax), 0)
+        st = ps.ps5000aGetTimebase2(handle, tb, samples, ctypes.byref(dt_ns), ctypes.byref(retmax), 0)
         if st == 0:
             return float(dt_ns.value), tb
         tb += 1
