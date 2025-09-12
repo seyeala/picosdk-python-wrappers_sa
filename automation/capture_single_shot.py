@@ -56,14 +56,21 @@ post = int(cfg["samples"] - pre)
 
 # --- Timebase info (YOUR WRAPPER = 6-arg GetTimebase2) ---
 time_interval_ns = ctypes.c_float()     # float, not double
-oversample       = 1
-assert_pico_ok(ps.ps5000aGetTimebase2(
-    chandle, int(cfg["timebase"]), int(cfg["samples"]),
-    ctypes.byref(time_interval_ns), oversample, 0
-))
-print(f"Timebase OK: dt={time_interval_ns.value:.3f} ns")
+max_samples      = ctypes.c_int32()
+assert_pico_ok(
+    ps.ps5000aGetTimebase2(
+        chandle,
+        int(cfg["timebase"]),
+        int(cfg["samples"]),
+        ctypes.byref(time_interval_ns),
+        ctypes.byref(max_samples),
+        0,
+    )
+)
+print(f"Timebase OK: dt={time_interval_ns.value:.3f} ns, max_samples={max_samples.value}")
 
 # Arm & run (oversample=1)
+oversample = 1
 assert_pico_ok(ps.ps5000aRunBlock(chandle, pre, post, int(cfg["timebase"]), oversample, None, 0, None, None))
 print("Acquiring...")
 ready = ctypes.c_int16(0)
