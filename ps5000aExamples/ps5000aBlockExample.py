@@ -102,83 +102,82 @@ assert_pico_ok(status["getTimebase2"])
 # segment index = 0
 # lpReady = None (using ps5000aIsReady rather than ps5000aBlockReady)
 # pParameter = None
-status["runBlock"] = ps.ps5000aRunBlock(chandle, preTriggerSamples, postTriggerSamples, timebase, None, 0, None, None)
-assert_pico_ok(status["runBlock"])
+try:
+    status["runBlock"] = ps.ps5000aRunBlock(chandle, preTriggerSamples, postTriggerSamples, timebase, None, 0, None, None)
+    assert_pico_ok(status["runBlock"])
 
-# Check for data collection to finish using ps5000aIsReady
-ready = ctypes.c_int16(0)
-check = ctypes.c_int16(0)
-while ready.value == check.value:
-    status["isReady"] = ps.ps5000aIsReady(chandle, ctypes.byref(ready))
+    # Check for data collection to finish using ps5000aIsReady
+    ready = ctypes.c_int16(0)
+    check = ctypes.c_int16(0)
+    while ready.value == check.value:
+        status["isReady"] = ps.ps5000aIsReady(chandle, ctypes.byref(ready))
 
+    # Create buffers ready for assigning pointers for data collection
+    bufferAMax = (ctypes.c_int16 * maxSamples)()
+    bufferAMin = (ctypes.c_int16 * maxSamples)() # used for downsampling which isn't in the scope of this example
+    bufferBMax = (ctypes.c_int16 * maxSamples)()
+    bufferBMin = (ctypes.c_int16 * maxSamples)() # used for downsampling which isn't in the scope of this example
 
-# Create buffers ready for assigning pointers for data collection
-bufferAMax = (ctypes.c_int16 * maxSamples)()
-bufferAMin = (ctypes.c_int16 * maxSamples)() # used for downsampling which isn't in the scope of this example
-bufferBMax = (ctypes.c_int16 * maxSamples)()
-bufferBMin = (ctypes.c_int16 * maxSamples)() # used for downsampling which isn't in the scope of this example
+    # Set data buffer location for data collection from channel A
+    # handle = chandle
+    source = ps.PS5000A_CHANNEL["PS5000A_CHANNEL_A"]
+    # pointer to buffer max = ctypes.byref(bufferAMax)
+    # pointer to buffer min = ctypes.byref(bufferAMin)
+    # buffer length = maxSamples
+    # segment index = 0
+    # ratio mode = PS5000A_RATIO_MODE_NONE = 0
+    status["setDataBuffersA"] = ps.ps5000aSetDataBuffers(chandle, source, ctypes.byref(bufferAMax), ctypes.byref(bufferAMin), maxSamples, 0, 0)
+    assert_pico_ok(status["setDataBuffersA"])
 
-# Set data buffer location for data collection from channel A
-# handle = chandle
-source = ps.PS5000A_CHANNEL["PS5000A_CHANNEL_A"]
-# pointer to buffer max = ctypes.byref(bufferAMax)
-# pointer to buffer min = ctypes.byref(bufferAMin)
-# buffer length = maxSamples
-# segment index = 0
-# ratio mode = PS5000A_RATIO_MODE_NONE = 0
-status["setDataBuffersA"] = ps.ps5000aSetDataBuffers(chandle, source, ctypes.byref(bufferAMax), ctypes.byref(bufferAMin), maxSamples, 0, 0)
-assert_pico_ok(status["setDataBuffersA"])
+    # Set data buffer location for data collection from channel B
+    # handle = chandle
+    source = ps.PS5000A_CHANNEL["PS5000A_CHANNEL_B"]
+    # pointer to buffer max = ctypes.byref(bufferBMax)
+    # pointer to buffer min = ctypes.byref(bufferBMin)
+    # buffer length = maxSamples
+    # segment index = 0
+    # ratio mode = PS5000A_RATIO_MODE_NONE = 0
+    status["setDataBuffersB"] = ps.ps5000aSetDataBuffers(chandle, source, ctypes.byref(bufferBMax), ctypes.byref(bufferBMin), maxSamples, 0, 0)
+    assert_pico_ok(status["setDataBuffersB"])
 
-# Set data buffer location for data collection from channel B
-# handle = chandle
-source = ps.PS5000A_CHANNEL["PS5000A_CHANNEL_B"]
-# pointer to buffer max = ctypes.byref(bufferBMax)
-# pointer to buffer min = ctypes.byref(bufferBMin)
-# buffer length = maxSamples
-# segment index = 0
-# ratio mode = PS5000A_RATIO_MODE_NONE = 0
-status["setDataBuffersB"] = ps.ps5000aSetDataBuffers(chandle, source, ctypes.byref(bufferBMax), ctypes.byref(bufferBMin), maxSamples, 0, 0)
-assert_pico_ok(status["setDataBuffersB"])
+    # create overflow loaction
+    overflow = ctypes.c_int16()
+    # create converted type maxSamples
+    cmaxSamples = ctypes.c_int32(maxSamples)
 
-# create overflow loaction
-overflow = ctypes.c_int16()
-# create converted type maxSamples
-cmaxSamples = ctypes.c_int32(maxSamples)
+    # Retried data from scope to buffers assigned above
+    # handle = chandle
+    # start index = 0
+    # pointer to number of samples = ctypes.byref(cmaxSamples)
+    # downsample ratio = 0
+    # downsample ratio mode = PS5000A_RATIO_MODE_NONE
+    # pointer to overflow = ctypes.byref(overflow))
+    status["getValues"] = ps.ps5000aGetValues(chandle, 0, ctypes.byref(cmaxSamples), 0, 0, 0, ctypes.byref(overflow))
+    assert_pico_ok(status["getValues"])
 
-# Retried data from scope to buffers assigned above
-# handle = chandle
-# start index = 0
-# pointer to number of samples = ctypes.byref(cmaxSamples)
-# downsample ratio = 0
-# downsample ratio mode = PS5000A_RATIO_MODE_NONE
-# pointer to overflow = ctypes.byref(overflow))
-status["getValues"] = ps.ps5000aGetValues(chandle, 0, ctypes.byref(cmaxSamples), 0, 0, 0, ctypes.byref(overflow))
-assert_pico_ok(status["getValues"])
+    # convert ADC counts data to mV
+    adc2mVChAMax =  adc2mV(bufferAMax, chARange, maxADC)
+    adc2mVChBMax =  adc2mV(bufferBMax, chBRange, maxADC)
 
+    # Create time data
+    time = np.linspace(0, (cmaxSamples.value - 1) * timeIntervalns.value, cmaxSamples.value)
 
-# convert ADC counts data to mV
-adc2mVChAMax =  adc2mV(bufferAMax, chARange, maxADC)
-adc2mVChBMax =  adc2mV(bufferBMax, chBRange, maxADC)
+    # plot data from channel A and B
+    plt.plot(time, adc2mVChAMax[:])
+    plt.plot(time, adc2mVChBMax[:])
+    plt.xlabel('Time (ns)')
+    plt.ylabel('Voltage (mV)')
+    plt.show()
+finally:
+    # Stop the scope
+    # handle = chandle
+    status["stop"] = ps.ps5000aStop(chandle)
+    assert_pico_ok(status["stop"])
 
-# Create time data
-time = np.linspace(0, (cmaxSamples.value - 1) * timeIntervalns.value, cmaxSamples.value)
-
-# plot data from channel A and B
-plt.plot(time, adc2mVChAMax[:])
-plt.plot(time, adc2mVChBMax[:])
-plt.xlabel('Time (ns)')
-plt.ylabel('Voltage (mV)')
-plt.show()
-
-# Stop the scope
-# handle = chandle
-status["stop"] = ps.ps5000aStop(chandle)
-assert_pico_ok(status["stop"])
-
-# Close unit Disconnect the scope
-# handle = chandle
-status["close"]=ps.ps5000aCloseUnit(chandle)
-assert_pico_ok(status["close"])
+    # Close unit Disconnect the scope
+    # handle = chandle
+    status["close"] = ps.ps5000aCloseUnit(chandle)
+    assert_pico_ok(status["close"])
 
 # display status returns
 print(status)
