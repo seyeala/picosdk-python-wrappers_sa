@@ -1,27 +1,33 @@
-# pico_5544D_self_test.py — tailored for PicoScope 5000D (ps5000a API)
+# pico_5544D_self_test.py — PicoScope 5000D (ps5000a API) self-test
+# Prints unit info, supported resolutions/ranges, fastest Δt, and deep-memory limit.
 
 import ctypes
+from picosdk.ps5000a import ps5000a as ps
 from picosdk.functions import assert_pico_ok
 from picosdk.constants import PICO_INFO
-from picosdk.ps5000a import ps5000a as ps
 
-# If you didn't set the .pth hook earlier, uncomment the next 2 lines:
+# If you didn't set the .pth hook, uncomment:
 # import os
 # os.add_dll_directory(r"C:\Program Files\Pico Technology\SDK\lib")
 
-def get_str(buf: ctypes.Array) -> str:
-    raw = bytes((ctypes.c_char * len(buf)).from_buffer(buf)).split(b"\x00", 1)[0]
-    return raw.decode(errors="ignore")
-
 def unit_info(handle) -> dict:
+    """Query common identity strings using a proper C char buffer."""
     info = {}
-    buf = (ctypes.c_int8 * 256)()
     need = ctypes.c_int16()
-    def q(key):
-        code = PICO_INFO[key]
-        st = ps.ps5000aGetUnitInfo(handle, buf, ctypes.c_int16(len(buf)), ctypes.byref(need), code)
+
+    def q(info_key: str) -> str:
+        buf = ctypes.create_string_buffer(256)  # correct buffer type for driver strings
+        code = PICO_INFO[info_key]
+        st = ps.ps5000aGetUnitInfo(
+            handle,
+            buf,
+            ctypes.c_int16(ctypes.sizeof(buf)),
+            ctypes.byref(need),
+            code,
+        )
         assert_pico_ok(st)
-        return get_str(buf)
+        return buf.value.decode(errors="ignore")
+
     info["model"]  = q("PICO_VARIANT_INFO")
     info["serial"] = q("PICO_BATCH_AND_SERIAL")
     info["driver"] = q("PICO_DRIVER_VERSION")
@@ -32,90 +38,106 @@ def unit_info(handle) -> dict:
     return info
 
 def list_resolutions(handle):
-    """Probe FlexRes resolutions that the unit will accept."""
-    resnames = [
-        "PS5000A_DR_8BIT", "PS5000A_DR_12BIT", "PS5000A_DR_14BIT",
-        "PS5000A_DR_15BIT", "PS5000A_DR_16BIT",
-    ]
+    """Probe FlexRes modes the unit accepts."""
+    names = ["PS5000A_DR_8BIT","PS5000A_DR_12BIT","PS5000A_DR_14BIT","PS5000A_DR_15BIT","PS5000A_DR_16BIT"]
     ok = []
-    for name in resnames:
-        code = ps.PS5000A_DEVICE_RESOLUTION.get(name)
+    for n in names:
+        code = ps.PS5000A_DEVICE_RESOLUTION.get(n)
         if code is None:
             continue
         st = ps.ps5000aSetDeviceResolution(handle, code)
-        if st == 0:  # PICO_OK
-            ok.append(name.replace("PS5000A_DR_", ""))
-    # Default back to 8-bit for subsequent queries
+        if st == ps.PICO_STATUS["PICO_OK"]:
+            ok.append(n.replace("PS5000A_DR_", ""))
+    # restore 8-bit (fastest) for subsequent timing/memory queries
     ps.ps5000aSetDeviceResolution(handle, ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_8BIT"])
     return ok
 
 def list_ranges_A(handle):
-    """List voltage ranges supported on Channel A by asking analogue offset limits."""
-    rngs = []
+    """List input ranges supported on Channel A by querying analogue offset limits."""
+    ranges = []
     chA = ps.PS5000A_CHANNEL["PS5000A_CHANNEL_A"]
     min_off = ctypes.c_float()
     max_off = ctypes.c_float()
     for name, code in sorted(ps.PS5000A_RANGE.items(), key=lambda kv: kv[1]):
         st = ps.ps5000aGetAnalogueOffset(handle, chA, code, ctypes.byref(min_off), ctypes.byref(max_off))
-        if st == 0:
-            rngs.append(name.replace("PS5000A_", ""))  # e.g., 10MV, 20MV, 50MV, 100MV ... 50V
-    return rngs
+        if st == ps.PICO_STATUS["PICO_OK"]:
+            ranges.append(name.replace("PS5000A_", ""))  # e.g., 10MV ... 50V
+    return ranges
 
 def set_one_channel_A_5V(handle):
-    """Enable only CH A, DC, ±5 V so timebase queries reflect single-channel best case."""
+    """Enable CH A only; disable others (single-channel best case for Δt)."""
     coupling = ps.PS5000A_COUPLING["PS5000A_DC"]
     rng = ps.PS5000A_RANGE["PS5000A_5V"]
     assert_pico_ok(ps.ps5000aSetChannel(handle, ps.PS5000A_CHANNEL["PS5000A_CHANNEL_A"], 1, coupling, rng, 0.0))
-    for ch_name in ("PS5000A_CHANNEL_B", "PS5000A_CHANNEL_C", "PS5000A_CHANNEL_D"):
-        if ch_name in ps.PS5000A_CHANNEL:
-            ps.ps5000aSetChannel(handle, ps.PS5000A_CHANNEL[ch_name], 0, coupling, rng, 0.0)
+    for key in ("PS5000A_CHANNEL_B","PS5000A_CHANNEL_C","PS5000A_CHANNEL_D"):
+        if key in ps.PS5000A_CHANNEL:
+            ps.ps5000aSetChannel(handle, ps.PS5000A_CHANNEL[key], 0, coupling, rng, 0.0)
 
 def fastest_dt_ns(handle, samples=1024):
-    """Scan timebase to find the smallest Δt the driver allows for the current config."""
-    timebase = 0
+    """Scan timebase upward to find the minimum Δt (ns) for current config."""
+    tb = 0
     dt_ns = ctypes.c_float()
     retmax = ctypes.c_uint32()
-    # oversample = 1, segment index = 0
-    while timebase < 10000:
-        st = ps.ps5000aGetTimebase2(handle, timebase, samples, ctypes.byref(dt_ns), 1, ctypes.byref(retmax), 0)
-        if st == 0:
-            return float(dt_ns.value), timebase
-        timebase += 1
+    while tb < 10000:
+        st = ps.ps5000aGetTimebase2(handle, tb, samples, ctypes.byref(dt_ns), 1, ctypes.byref(retmax), 0)
+        if st == ps.PICO_STATUS["PICO_OK"]:
+            return float(dt_ns.value), tb
+        tb += 1
     return float("nan"), -1
 
 def max_samples_per_segment(handle):
-    """Query deep memory per segment under current config."""
+    """Deep memory per segment for current config."""
     max_per_seg = ctypes.c_uint32()
     assert_pico_ok(ps.ps5000aMemorySegments(handle, 1, ctypes.byref(max_per_seg)))
     return max_per_seg.value
 
-def main():
-    # Close the PicoScope desktop app before running this.
-    # Open the unit with an explicit resolution (8-bit = fastest)
+def open_5544D():
+    """Open the unit with explicit resolution and helpful error messages."""
     handle = ctypes.c_int16()
     res = ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_8BIT"]
-    assert_pico_ok(ps.ps5000aOpenUnit(ctypes.byref(handle), None, res))
+    st = ps.ps5000aOpenUnit(ctypes.byref(handle), None, res)
 
+    if st == ps.PICO_STATUS["PICO_USB3_0_DEVICE_NON_USB3_0_PORT"]:
+        raise SystemExit(
+            "PICO_USB3_0_DEVICE_NON_USB3_0_PORT: plug the 5544D into a TRUE USB 3.x port "
+            "(rear motherboard port) with a SuperSpeed cable, then retry."
+        )
+    if st == ps.PICO_STATUS["PICO_DEVICE_IN_USE"]:
+        raise SystemExit("PICO_DEVICE_IN_USE: close the PicoScope app or any software using the device, then retry.")
+    if st != ps.PICO_STATUS["PICO_OK"]:
+        # map code to symbolic name for clarity
+        name = next((k for k,v in ps.PICO_STATUS.items() if v == st), str(st))
+        raise SystemExit(f"ps5000aOpenUnit failed: {name} ({st})")
+
+    return handle
+
+def main():
+    # Open
+    handle = open_5544D()
     try:
+        # Identity
         info = unit_info(handle)
-        print("✅ Opened 5000D (ps5000a). Handle:", handle.value)
+        print("✅ Opened PicoScope 5000D (ps5000a). Handle:", handle.value)
         print("────────────────────────────────────")
-        for k, v in info.items():
-            print(f"{k:>12}: {v}")
+        for k in ("model","serial","driver","fw1","fw2","usb","cal"):
+            print(f"{k:>12}: {info.get(k,'')}")
         print("────────────────────────────────────")
 
-        # Resolutions (FlexRes)
+        # Capabilities
         res_ok = list_resolutions(handle)
         print("ADC resolutions supported:", ", ".join(res_ok) if res_ok else "(not reported)")
 
-        # Channel A ranges
-        rngs = list_ranges_A(handle)
-        print("Channel A input ranges:", ", ".join(rngs) if rngs else "(not reported)")
+        ranges = list_ranges_A(handle)
+        print("Channel A input ranges:", ", ".join(ranges) if ranges else "(not reported)")
 
-        # Single-channel best case for Δt and memory
+        # Timing & memory (single-channel best case)
         set_one_channel_A_5V(handle)
         dt, tb = fastest_dt_ns(handle, samples=1024)
-        print(f"Fastest Δt (approx): {dt:.3f} ns  (timebase={tb})")
+        if dt == dt:
+            print(f"Fastest Δt (approx): {dt:.3f} ns  (timebase={tb})")
+        else:
+            print("Fastest Δt (approx): (not found in scan)")
+
         print(f"Max samples per segment (current setup): {max_samples_per_segment(handle):,}")
 
     finally:
