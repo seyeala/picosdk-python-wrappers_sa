@@ -1,4 +1,3 @@
-@'
 # pico_5544D_self_test.py — PicoScope 5000D (ps5000a API) self-test
 # - Prints ALL available PICO_STATUS keys (no hard-coded lookups)
 # - Opens unit, prints identity, capabilities, fastest Δt, deep memory
@@ -165,4 +164,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-'@ | Set-Content -Encoding UTF8 automation\picoscope_self_test.py
