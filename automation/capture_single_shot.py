@@ -68,6 +68,8 @@ try:
     c_samples = ctypes.c_uint32(cfg["samples"])
     overflow = ctypes.c_int16()
     ps.ps5000aGetValues(chandle, 0, ctypes.byref(c_samples), 0, 0, 0, ctypes.byref(overflow))
+    if overflow.value:
+        raise RuntimeError(f"Overflow detected: {overflow.value}")
 
     # Convert to physical units
     adc_mv = adc2mV(buffer, vrange, max_adc)
