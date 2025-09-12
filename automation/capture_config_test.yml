@@ -1,0 +1,18 @@
+resolution: PS5000A_DR_8BIT
+channel: PS5000A_CHANNEL_A
+coupling: PS5000A_DC
+vrange: PS5000A_5V
+offset_v: 0.0
+
+timebase: 0
+pre_ratio: 0.10        # 10% of samples acquired before trigger
+samples: 50000000
+
+trig_source: PS5000A_CHANNEL_A
+trig_level_mV: 500
+trig_direction: PS5000A_RISING
+auto_trig_ms: 1000
+trig_delay_samples: 0
+
+csv_path: capture_50M.csv
+write_chunk: 2000000
