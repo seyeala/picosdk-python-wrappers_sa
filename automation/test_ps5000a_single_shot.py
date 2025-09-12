@@ -2,6 +2,7 @@ import csv
 import ctypes
 import numpy as np
 import yaml
+import time
 from picosdk.ps5000a import ps5000a as ps
 from picosdk.functions import adc2mV, assert_pico_ok, mV2adc
 
@@ -57,6 +58,7 @@ ps.ps5000aRunBlock(chandle, pre, post, cfg["timebase"], None, 0, None, None)
 ready = ctypes.c_int16(0)
 while not ready.value:
     ps.ps5000aIsReady(chandle, ctypes.byref(ready))
+    time.sleep(0.01)
 
 # Set buffer and retrieve data
 buffer = (ctypes.c_int16 * cfg["samples"])()
