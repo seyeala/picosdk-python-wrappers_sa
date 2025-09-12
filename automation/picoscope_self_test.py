@@ -1,42 +1,50 @@
+@'
 # pico_5544D_self_test.py — PicoScope 5000D (ps5000a API) self-test
 
 import ctypes
 from picosdk.ps5000a import ps5000a as ps
-from picosdk.functions import assert_pico_ok
+from picosdk.functions import assert_pico_ok, PICO_STATUS_LOOKUP
 from picosdk.constants import PICO_INFO
 
-# If you didn't set the .pth hook, uncomment:
+# If you didn't set the .pth hook earlier, uncomment the two lines below:
 # import os
 # os.add_dll_directory(r"C:\Program Files\Pico Technology\SDK\lib")
 
 def status_name(code: int) -> str:
-    """Map numeric status code to name if present in this wrapper."""
-    for k, v in ps.PICO_STATUS.items():
-        if v == code:
-            return k
-    return f"(unknown:{code})"
+    """Map numeric status to a readable name (fallback to lookup table or code)."""
+    try:
+        for k, v in ps.PICO_STATUS.items():
+            if v == code:
+                return k
+    except Exception:
+        pass
+    return PICO_STATUS_LOOKUP.get(code, f"(unknown:{code})")
 
 def open_5544D() -> ctypes.c_int16:
-    """Open with explicit resolution; give helpful messages for common errors."""
+    """Open with explicit resolution; give actionable messages for common failures."""
     handle = ctypes.c_int16()
-    res = ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_8BIT"]
+    res = ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_8BIT"]  # fastest; you can change later
     st = ps.ps5000aOpenUnit(ctypes.byref(handle), None, res)
-
-    if st == ps.PICO_STATUS.get("PICO_OK", 0):
-        return handle
-
-    name = status_name(st)
-    if name == "PICO_USB3_0_DEVICE_NON_USB3_0_PORT":
-        raise SystemExit("USB3 device on a non-USB3 port: move the 5544D to a true USB 3.x port (rear I/O) with a SuperSpeed cable.")
-    # Generic guidance for other failures (device busy, in use, not found, etc.)
-    raise SystemExit(f"ps5000aOpenUnit failed: {name}. Ensure PicoScope app is closed, use a rear USB3 port/cable, and try again.")
+    if st != 0:  # not PICO_OK
+        name = status_name(st)
+        if name == "PICO_USB3_0_DEVICE_NON_USB3_0_PORT":
+            raise SystemExit(
+                "USB3 device on a non-USB3 port: move the 5544D to a true USB 3.x port (rear I/O) with a SuperSpeed cable."
+            )
+        # Generic guidance for other failures: device busy/in use/not found, etc.
+        raise SystemExit(
+            f"ps5000aOpenUnit failed: {name} ({st}). "
+            "Close the PicoScope app, use a rear USB3 port + SS cable, and try again."
+        )
+    return handle
 
 def unit_info(handle) -> dict:
     """Query identity strings using a proper C char buffer."""
     info = {}
     need = ctypes.c_int16()
+
     def q(key: str) -> str:
-        buf = ctypes.create_string_buffer(256)
+        buf = ctypes.create_string_buffer(256)  # correct buffer type
         code = PICO_INFO[key]
         st = ps.ps5000aGetUnitInfo(
             handle,
@@ -47,6 +55,7 @@ def unit_info(handle) -> dict:
         )
         assert_pico_ok(st)
         return buf.value.decode(errors="ignore")
+
     info["model"]  = q("PICO_VARIANT_INFO")
     info["serial"] = q("PICO_BATCH_AND_SERIAL")
     info["driver"] = q("PICO_DRIVER_VERSION")
@@ -65,9 +74,9 @@ def list_resolutions(handle):
         if code is None:
             continue
         st = ps.ps5000aSetDeviceResolution(handle, code)
-        if st == ps.PICO_STATUS.get("PICO_OK", 0):
+        if st == 0:
             ok.append(n.replace("PS5000A_DR_", ""))
-    # Restore 8-bit for timing/memory queries
+    # restore 8‑bit for timing/memory queries
     ps.ps5000aSetDeviceResolution(handle, ps.PS5000A_DEVICE_RESOLUTION["PS5000A_DR_8BIT"])
     return ok
 
@@ -79,12 +88,12 @@ def list_ranges_A(handle):
     max_off = ctypes.c_float()
     for name, code in sorted(ps.PS5000A_RANGE.items(), key=lambda kv: kv[1]):
         st = ps.ps5000aGetAnalogueOffset(handle, chA, code, ctypes.byref(min_off), ctypes.byref(max_off))
-        if st == ps.PICO_STATUS.get("PICO_OK", 0):
-            ranges.append(name.replace("PS5000A_", ""))  # e.g., 10MV ... 50V
+        if st == 0:
+            ranges.append(name.replace("PS5000A_", ""))  # e.g., 10MV … 50V
     return ranges
 
 def set_one_channel_A_5V(handle):
-    """Enable CH A only; disable others (single-channel best case for Δt)."""
+    """Enable CH A only; disable others (single‑channel best case for Δt)."""
     coupling = ps.PS5000A_COUPLING["PS5000A_DC"]
     rng = ps.PS5000A_RANGE["PS5000A_5V"]
     assert_pico_ok(ps.ps5000aSetChannel(handle, ps.PS5000A_CHANNEL["PS5000A_CHANNEL_A"], 1, coupling, rng, 0.0))
@@ -99,7 +108,7 @@ def fastest_dt_ns(handle, samples=1024):
     retmax = ctypes.c_uint32()
     while tb < 10000:
         st = ps.ps5000aGetTimebase2(handle, tb, samples, ctypes.byref(dt_ns), 1, ctypes.byref(retmax), 0)
-        if st == ps.PICO_STATUS.get("PICO_OK", 0):
+        if st == 0:
             return float(dt_ns.value), tb
         tb += 1
     return float("nan"), -1
@@ -111,6 +120,7 @@ def max_samples_per_segment(handle):
     return max_per_seg.value
 
 def main():
+    # Make sure the PicoScope desktop app is closed before running this.
     handle = open_5544D()
     try:
         info = unit_info(handle)
@@ -141,3 +151,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+'@ | Set-Content -Encoding UTF8 automation\picoscope_self_test.py
