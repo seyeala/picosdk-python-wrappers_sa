@@ -1,0 +1,26 @@
+resolution: "PS5000A_DR_8BIT"
+channel: "PS5000A_CHANNEL_A"
+coupling: "PS5000A_DC"
+vrange: "PS5000A_5V"
+offset_v: 0.0
+
+timebase: 0
+samples: 10000000
+pre_ratio: 0.0
+
+trig_enabled: false
+trig_source: "PS5000A_CHANNEL_A"
+trig_level_mV: 500
+trig_direction: "PS5000A_RISING"
+auto_trig_ms: 0
+trig_delay_samples: 0
+
+# save_format accepts: "csv", "numpy", or "both"
+save_format: "both"
+csv_path: "capture_10M_1ns.csv"
+numpy_path: "capture_10M_1ns.npz"
+write_chunk: 200000
+timestamp_filenames: true
+
+captures: 3
+rest_ms: 500
