@@ -20,4 +20,4 @@ save_format: "both"
 csv_path: "capture_10M_1ns.csv"
 numpy_path: "capture_10M_1ns.npz"
 write_chunk: 200000
-timestamp_filenames: false
+timestamp_filenames: true
