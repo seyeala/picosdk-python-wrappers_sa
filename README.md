@@ -106,6 +106,12 @@ It is implemented in terms of the Library class' public interface, and deals alm
 main exception is its handling of numpy arrays - it (knowing the voltage ranges) is responsible for converting the raw
 ADC counts that the driver uses for amplitude into physical units.
 
+## Automation
+
+Utility scripts for automating common PicoScope 5000A tasks are available in the
+[automation](automation/README.md) folder. These include a self-test and a
+single-shot capture example driven by a YAML configuration file.
+
 ## Testing this code
 
 Check which device driver your device uses, and check the constants at the top of test/test_helpers.py to enable the 
