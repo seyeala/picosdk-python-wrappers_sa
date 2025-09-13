@@ -1,17 +1,58 @@
 # -*- coding: utf-8 -*-
 # capture_single_shot.py — PS5000A block capture with CSV/NumPy outputs
+# Reads settings from YAML and allows command-line overrides
 
+import argparse
 import ctypes
 import time
 import csv
 import os
 from datetime import datetime
-import yaml
+
 import numpy as np
+import yaml
 from picosdk.ps5000a import ps5000a as ps
 from picosdk.functions import assert_pico_ok, adc2mV, mV2adc
 
 CFG_PATH = "capture_config_test.yml"
+
+
+def build_argparser() -> argparse.ArgumentParser:
+    """Create an argument parser covering all YAML config options."""
+    p = argparse.ArgumentParser(description="PS5000A single-shot capture")
+    p.add_argument("-c", "--config", default=CFG_PATH, help="Path to YAML configuration file")
+    p.add_argument("--resolution")
+    p.add_argument("--channel")
+    p.add_argument("--coupling")
+    p.add_argument("--vrange")
+    p.add_argument("--offset-v", type=float, dest="offset_v")
+    p.add_argument("--timebase", type=int)
+    p.add_argument("--samples", type=int)
+    p.add_argument("--pre-ratio", type=float, dest="pre_ratio")
+    p.add_argument("--trig-enabled", dest="trig_enabled", action="store_true")
+    p.add_argument("--no-trig-enabled", dest="trig_enabled", action="store_false")
+    p.add_argument("--trig-source")
+    p.add_argument("--trig-level-mv", type=float, dest="trig_level_mV")
+    p.add_argument("--trig-direction")
+    p.add_argument("--auto-trig-ms", type=int, dest="auto_trig_ms")
+    p.add_argument("--trig-delay-samples", type=int, dest="trig_delay_samples")
+    p.add_argument("--save-format")
+    p.add_argument("--csv-path")
+    p.add_argument("--numpy-path")
+    p.add_argument("--write-chunk", type=int, dest="write_chunk")
+    p.add_argument("--timestamp-filenames", dest="timestamp_filenames", action="store_true")
+    p.add_argument("--no-timestamp-filenames", dest="timestamp_filenames", action="store_false")
+    p.set_defaults(trig_enabled=None, timestamp_filenames=None)
+    return p
+
+
+def apply_overrides(cfg: dict, args: argparse.Namespace) -> dict:
+    """Override YAML values with any command-line flags."""
+    for k, v in vars(args).items():
+        if k == "config" or v is None:
+            continue
+        cfg[k] = v
+    return cfg
 
 def pico_ok(code: int) -> bool:
     return code == ps.PICO_STATUS["PICO_OK"]
@@ -171,7 +212,10 @@ def main(cfg: dict) -> None:
 
 
 if __name__ == "__main__":
-    with open(CFG_PATH, "r") as f:
+    parser = build_argparser()
+    args = parser.parse_args()
+    with open(args.config, "r") as f:
         cfg = yaml.safe_load(f)
+    cfg = apply_overrides(cfg, args)
     main(cfg)
 

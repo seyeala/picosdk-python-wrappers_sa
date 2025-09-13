@@ -24,7 +24,14 @@ cd automation
 python capture_single_shot.py
 ```
 
-`capture_single_shot.py` reads `capture_config_test.yml` by default. Edit the YAML file to change channel, trigger or output options.
+`capture_single_shot.py` reads `capture_config_test.yml` by default. Any option from the YAML file can also be supplied on the
+command line to override the configuration. For example, to capture 2 million samples using timebase 1:
+
+```bash
+python capture_single_shot.py --samples 2000000 --timebase 1
+```
+
+Use `--help` to see all available flags.
 
 To save output files with a timestamped name of the form
 `M08-D24-H13-M05-S30-U.123.csv` (month-day-hour-minute-second-microseconds), set
@@ -38,7 +45,8 @@ cd automation
 python capture_multi_shot.py
 ```
 
-`capture_multi.yml` accepts all of the single-shot options plus:
+`capture_multi_shot.py` accepts the same command-line overrides as the single-shot script and reads `capture_multi.yml` by
+default. The file and flags include all single-shot options plus:
 
 - `captures` – number of captures to perform.
 - `rest_ms` – delay between captures in milliseconds.
