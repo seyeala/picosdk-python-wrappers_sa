@@ -4,9 +4,11 @@ Utility scripts for automating basic captures and checks with a PicoScope 5000A 
 
 ## Contents
 
-- `capture_single_shot.py` – captures a single-channel trace using settings from `capture_config_test.yml` and writes the result to CSV.
+- `capture_single_shot.py` – captures a single-channel trace using settings from `capture_config_test.yml` and writes the result to CSV or NumPy.
+- `capture_multi_shot.py` – repeatedly invokes the single-shot script using settings from `capture_multi.yml`.
 - `picoscope_self_test.py` – queries the connected unit and prints identity, capability and timing information for a quick hardware check.
 - `capture_config_test.yml` – sample configuration used by `capture_single_shot.py`.
+- `capture_multi.yml` – sample configuration for `capture_multi_shot.py`.
 
 ## Requirements
 
@@ -28,4 +30,16 @@ To save output files with a timestamped name of the form
 `M08-D24-H13-M05-S30-U.123.csv` (month-day-hour-minute-second-microseconds), set
 `timestamp_filenames: true` in the configuration. When disabled, the
 `csv_path` and `numpy_path` values are used directly.
+
+Run multiple captures with a rest period between each:
+
+```bash
+cd automation
+python capture_multi_shot.py
+```
+
+`capture_multi.yml` accepts all of the single-shot options plus:
+
+- `captures` – number of captures to perform.
+- `rest_ms` – delay between captures in milliseconds.
 
