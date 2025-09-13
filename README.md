@@ -130,8 +130,28 @@ To check which driver your device uses, you can use `picosdk.discover`:
 You should then configure test/test_helpers.py's list of connected devices, so it can run all the tests we have
 on your device.
 
-To run the unit tests, you will need to install nose (e.g. `pip install nose`.) Then, run `nosetests` in the root of 
-the repo. 
+To run the unit tests, you will need to install nose (e.g. `pip install nose`.) Then, run `nosetests` in the root of
+the repo.
+
+### DAQ I/O demonstration
+
+A small demonstration script is available in `test/test_daq_io.py`.  It uses
+`pressures.csv` to feed a few floating point values through stub input and
+output runners and prints the paired values to the console.
+
+Run the script from the repository root:
+
+```
+python test/test_daq_io.py
+```
+
+Expected console output:
+
+```
+Input 1.0 -> Output 1.0
+Input 2.0 -> Output 2.0
+Input 3.0 -> Output 3.0
+```
 
 ## Obtaining support
 
