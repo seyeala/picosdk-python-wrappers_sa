@@ -24,3 +24,8 @@ python capture_single_shot.py
 
 `capture_single_shot.py` reads `capture_config_test.yml` by default. Edit the YAML file to change channel, trigger or output options.
 
+To save output files with a timestamped name of the form
+`M08-D24-H13-M05-S30-U.123.csv` (month-day-hour-minute-second-microseconds), set
+`timestamp_filenames: true` in the configuration. When disabled, the
+`csv_path` and `numpy_path` values are used directly.
+

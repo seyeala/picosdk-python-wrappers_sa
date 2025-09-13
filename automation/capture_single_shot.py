@@ -4,6 +4,8 @@
 import ctypes
 import time
 import csv
+import os
+from datetime import datetime
 import yaml
 import numpy as np
 from picosdk.ps5000a import ps5000a as ps
@@ -98,6 +100,13 @@ if tb != tb_req:
 print(f"Timebase OK: dt ~ {dt_ns.value:.3f} ns, driver maxSamples={retmax.value}")
 
 # ---- Run block ----
+ts_str = ""
+if cfg.get("timestamp_filenames", False):
+    now = datetime.now()
+    ts_str = (
+        f"M{now.month:02d}-D{now.day:02d}-H{now.hour:02d}-"
+        f"M{now.minute:02d}-S{now.second:02d}-U.{now.microsecond // 1000:03d}"
+    )
 assert_pico_ok(ps.ps5000aRunBlock(h, pre, post, tb, None, 0, None, None))
 print("Acquiring...")
 ready = ctypes.c_int16(0)
@@ -128,6 +137,9 @@ do_np    = save_fmt in ("numpy", "both")
 if do_csv:
     chunk = int(cfg.get("write_chunk", 200000))
     csv_path = cfg.get("csv_path", "capture.csv")
+    if cfg.get("timestamp_filenames", False):
+        csv_dir = os.path.dirname(csv_path)
+        csv_path = os.path.join(csv_dir, f"{ts_str}.csv")
     with open(csv_path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["time_ns", "mV"])
@@ -138,6 +150,9 @@ if do_csv:
 
 if do_np:
     np_path = cfg.get("numpy_path", "capture.npz")
+    if cfg.get("timestamp_filenames", False):
+        np_dir = os.path.dirname(np_path)
+        np_path = os.path.join(np_dir, f"{ts_str}.npz")
     # store both arrays + minimal metadata together
     np.savez(
         np_path,
