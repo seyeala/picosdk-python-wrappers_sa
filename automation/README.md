@@ -50,4 +50,5 @@ default. The file and flags include all single-shot options plus:
 
 - `captures` – number of captures to perform.
 - `rest_ms` – delay between captures in milliseconds.
+- `break_on_key` – stop the loop early if a key is pressed during the rest period.
 

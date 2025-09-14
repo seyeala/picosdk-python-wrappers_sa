@@ -24,3 +24,4 @@ timestamp_filenames: true
 
 captures: 3
 rest_ms: 500
+break_on_key: false
