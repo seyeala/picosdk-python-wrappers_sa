@@ -108,9 +108,14 @@ ADC counts that the driver uses for amplitude into physical units.
 
 ## Automation
 
-Utility scripts for automating common PicoScope 5000A tasks are available in the
-[automation](automation/README.md) folder. These include a self-test and a
-single-shot capture example driven by a YAML configuration file.
+Utility scripts and sample configurations for common PicoScope 5000A tasks:
+
+- `capture_single_shot.py` — single-channel capture driven by `capture_config_test.yml`; outputs CSV/NumPy.
+- `capture_multi_shot.py` — runs repeated single-shot captures using `capture_multi.yml`.
+- `picoscope_self_test.py` — quick hardware self‑test reporting identity, capabilities, and timing.
+- Sample configs: `capture_config_test.yml` and `capture_multi.yml`.
+
+These scripts require a PicoScope device and the `picosdk`, `numpy`, and `PyYAML` packages. For deeper usage examples, see [automation/README.md](automation/README.md).
 
 ## Testing this code
 
